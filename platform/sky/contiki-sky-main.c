@@ -137,13 +137,13 @@ static void
 set_rime_addr(void)
 {
   rimeaddr_t addr;
-  int i;
 
   memset(&addr, 0, sizeof(rimeaddr_t));
 #if UIP_CONF_IPV6
   memcpy(addr.u8, ds2411_id, sizeof(addr.u8));
 #else
   if(node_id == 0) {
+	int i;
     for(i = 0; i < sizeof(rimeaddr_t); ++i) {
       addr.u8[i] = ds2411_id[7 - i];
     }
@@ -153,11 +153,11 @@ set_rime_addr(void)
   }
 #endif
   rimeaddr_set_node_addr(&addr);
-  printf("Rime started with address ");
-  for(i = 0; i < sizeof(addr.u8) - 1; i++) {
-    printf("%d.", addr.u8[i]);
-  }
-  printf("%d\n", addr.u8[i]);
+//  printf("Rime started with address ");
+//  for(i = 0; i < sizeof(addr.u8) - 1; i++) {
+//    printf("%d.", addr.u8[i]);
+//  }
+//  printf("%d\n", addr.u8[i]);
 }
 /*---------------------------------------------------------------------------*/
 #if !PROCESS_CONF_NO_PROCESS_NAMES
@@ -206,8 +206,11 @@ main(int argc, char **argv)
   leds_init();
   leds_on(LEDS_RED);
 
-
+#if defined(SIGFOX_SERIAL_ENABLED) | defined(SIGFOX_SERIAL_TEST_EN)
+  uart1_init(BAUD2UBR(9600));
+#else
   uart1_init(BAUD2UBR(115200)); /* Must come before first printf */
+#endif
 
   leds_on(LEDS_GREEN);
   ds2411_init();

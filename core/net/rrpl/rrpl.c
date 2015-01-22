@@ -53,7 +53,7 @@
 
 #if WITH_IPV6_RRPL
 
-#define DEBUG 1
+#define DEBUG 0
 #include "net/uip-debug.h"
 
 #define QRY_INTERVAL 5 * CLOCK_SECOND
@@ -97,6 +97,7 @@ static uint16_t local_prefix_len;
 static uint8_t opt_seq_skip_counter;
 uip_ipaddr_t local_prefix;
 uip_ipaddr_t ipaddr, myipaddr, mcastipaddr;
+
 uip_ipaddr_t orig_addr, dest_addr, rreq_addr, def_rt_addr, my_sink_id;
 static struct uip_udp_conn *udpconn;
 static uip_ipaddr_t rerr_bad_addr, rerr_src_addr, rerr_next_addr;
@@ -108,7 +109,29 @@ static uint8_t qry_left_to_send=0 ;
 PROCESS(rrpl_process, "RRPL process");
 /*---------------------------------------------------------------------------*/
 
+void
+print_6_addr(uip_ipaddr_t *addr)
+{
+  uint16_t a;
+  unsigned int i;
+  int f;
+  for(i = 0, f = 0; i < sizeof(uip_ipaddr_t); i += 2) {
+    a = (addr->u8[i] << 8) + addr->u8[i + 1];
+    if(a == 0 && f >= 0) {
+      if(f++ == 0) {
+        printf("::");
+      }
+    } else {
+      if(f > 0) {
+        f = -1;
+      } else if(i > 0) {
+        printf(":");
+      }
+      printf("%x", a);
+    }
+  }
 
+}
 /* Route lookup without triggering RREQ ! */
 /*---------------------------------------------------------------------------*/
 static uip_ds6_route_t *
@@ -371,6 +394,19 @@ static uip_ds6_route_t* uip_rrpl_route_add(uip_ipaddr_t* orig_addr, uint8_t leng
   PRINT6ADDR(orig_addr);
   PRINTF(" \n ");
   uip_rrpl_nbr_add(next_hop);
+
+
+
+  printf("CTIME\t");
+  print_6_addr(orig_addr);
+  printf("\t");
+  print_6_addr(next_hop);
+  printf("\t");
+  printf("Node ");
+  print_6_addr(orig_addr);
+  printf(" has parent ");
+  print_6_addr(next_hop);
+  printf(")\n");
  
   rt = uip_ds6_route_add(orig_addr, length, next_hop);
   PRINTF("passed add route\n");
@@ -411,7 +447,7 @@ send_qry()
   PRINTF("RRPL: Send QRY from ");
   PRINT6ADDR(&myipaddr);
   PRINTF("\n"); 
-
+  qry_count++;
   struct rrpl_msg_qry *rm = (struct rrpl_msg_qry *)buf;
 
   rm->type = RRPL_QRY_TYPE;
@@ -445,7 +481,7 @@ send_opt()
     enable_qry();
     return; //wait for sink OPT
   }
-
+  opt_count++;
   PRINTF("RRPL: Send OPT from ");
   PRINT6ADDR(&myipaddr);
   PRINTF("\n"); 
@@ -498,7 +534,7 @@ send_rreq()
   PRINTF(" from ");
   PRINT6ADDR(&myipaddr);
   PRINTF("\n"); 
-
+  rreq_count++;
   struct rrpl_msg_rreq *rm = (struct rrpl_msg_rreq *)buf;
 
   rm->type = RRPL_RREQ_TYPE;
@@ -528,6 +564,8 @@ send_rrep(uip_ipaddr_t *dest, uip_ipaddr_t *nexthop, uip_ipaddr_t *orig,
 { 
   char buf[MAX_PAYLOAD_LEN];
   struct rrpl_msg_rrep *rm = (struct rrpl_msg_rrep *)buf;
+
+  rrep_count++;
   PRINTF("RRPL: Send RREP for orig ");
   PRINT6ADDR(orig);
   PRINTF(" dest ");
@@ -560,6 +598,7 @@ send_rerr(uip_ipaddr_t *src, uip_ipaddr_t *dest, uip_ipaddr_t *nexthop)
 { 
   char buf[MAX_PAYLOAD_LEN];
   struct rrpl_msg_rerr *rm = (struct rrpl_msg_rerr *)buf;
+  rerr_count++;
   PRINTF("RRPL: Send RERR towards src: ");
   PRINT6ADDR(src);
   PRINTF(" for address in error: ");
@@ -583,8 +622,10 @@ send_rerr(uip_ipaddr_t *src, uip_ipaddr_t *dest, uip_ipaddr_t *nexthop)
 static void
 send_rack(uip_ipaddr_t *src, uip_ipaddr_t *nexthop, uint16_t seqno)
 { 
+
   char buf[MAX_PAYLOAD_LEN];
   struct rrpl_msg_rack *rm = (struct rrpl_msg_rack *)buf;
+  rack_count++;
   PRINTF("RRPL: Send RACK for src ");
   PRINT6ADDR(src);
   PRINTF(" nexthop ");
@@ -1097,6 +1138,13 @@ rrpl_request_route_to(uip_ipaddr_t *host)
   timer_set(&next_time, CLOCK_SECOND/RRPL_RREQ_RATELIMIT); 
 #endif
 }
+
+
+uip_ipaddr_t *
+get_parent(void)
+{
+return &def_rt_addr;
+}
 /*---------------------------------------------------------------------------*/
 void
 rrpl_no_route(uip_ipaddr_t *dest, uip_ipaddr_t *src)
@@ -1166,6 +1214,12 @@ uint8_t rrpl_is_my_global_address(uip_ipaddr_t *addr){
   return 0;
 }
 
+void rrpl_init(void)
+{
+	process_start(&rrpl_process,NULL);
+}
+
+
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(rrpl_process, ev, data)
 {
@@ -1187,6 +1241,13 @@ PROCESS_THREAD(rrpl_process, ev, data)
   my_parent_rssi = -126;
 #endif
   PRINTF("RRPL is sink:%d \n",(int)RRPL_IS_SINK);
+
+  opt_count = 0;
+  qry_count = 0;
+  rerr_count = 0;
+  rack_count = 0;
+  rreq_count = 0;
+  rrep_count = 0;
 
   my_hseqno = 1;
   print_local_addresses();
