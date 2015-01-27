@@ -1,0 +1,184 @@
+# -*-makefile-*-
+#
+# This file is part of HiKoB Openlab.
+#
+# HiKoB Openlab is free software: you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public License
+# as published by the Free Software Foundation, version 3.
+#
+# HiKoB Openlab is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with HiKoB Openlab. If not, see
+# <http://www.gnu.org/licenses/>.
+#
+# Copyright (C) 2011,2012,2013 HiKoB.
+#
+
+OPENLAB = $(CONTIKI)/platform/openlab
+OPENLAB_REL = ../openlab
+ifneq ($(wildcard $(CONTIKI)/../openlab/),)
+	# Use directly openlab if available (from iot-lab repository)
+	OPENLAB_GIT = $(CONTIKI)/../openlab
+	OPENLAB_GIT_REL = ../../../openlab
+
+else
+	ifneq ($(wildcard $(OPENLAB)/git),)
+		# use symbolic link 'git -> openlab directory'
+		OPENLAB_GIT = $(OPENLAB)/git
+		OPENLAB_GIT_REL = $(OPENLAB_REL)/git
+	else
+
+$(warning $(OPENLAB)/git should be a symbolic link to the 'openlab' repository)
+$(warning     cd contiki/platform/openlab)
+$(warning  	  ln -s path_to_openlab_repository git)
+$(error Could not find openlab repository)
+	endif
+endif
+
+
+DEBUG            = 1
+CFLAGS          += -DIOTLAB_A8_M3 -DKEEP_UART=1 -DENABLE_DEBUG=1 -DRELEASE=0
+LINKERSCRIPT     = $(OPENLAB_GIT)/platform/scripts/stm32f103rey6.ld
+
+OOCD_TARGET      = stm32f1x
+OOCD_ITF         = $(OPENLAB_GIT)/platform/scripts/iotlab-a8-m3.cfg
+
+include $(OPENLAB)/Makefile.include
+
+##
+## Openlab sources
+##
+
+OPENLAB_INCLUDE_PATH += \
+	-I$(OPENLAB)				\
+	-I$(OPENLAB_GIT)	                \
+	-I$(OPENLAB_GIT)/drivers/cortex-m3	\
+	-I$(OPENLAB_GIT)/drivers/stm32		\
+	-I$(OPENLAB_GIT)/drivers/stm32f1xx
+
+OPENLAB_TARGET_DIRS  += . 			\
+	$(OPENLAB_REL)				\
+	$(OPENLAB_REL)/dev				\
+	$(OPENLAB_GIT_REL)/drivers		\
+	$(OPENLAB_GIT_REL)/lib	 		\
+	$(OPENLAB_GIT_REL)/net	 		\
+	$(OPENLAB_GIT_REL)/periph 		\
+	$(OPENLAB_GIT_REL)/platform
+
+OPENLAB_SRC += 					\
+	\
+	cortex-m3/boot.c			\
+	cortex-m3/nvic.c			\
+	\
+	stm32/dma.c				\
+	stm32/i2c.c				\
+	stm32/spi.c				\
+	stm32/timer.c				\
+	stm32/uart.c				\
+	stm32/unique_id.c			\
+	stm32/usb.c				\
+	stm32/watchdog.c			\
+	\
+	stm32f1xx/adc.c				\
+	stm32f1xx/afio.c			\
+	stm32f1xx/boot.c			\
+	stm32f1xx/exti.c			\
+	stm32f1xx/flash.c			\
+	stm32f1xx/gpio.c			\
+	stm32f1xx/rcc.c				\
+	stm32f1xx/rcc_clock.c			\
+	stm32f1xx/rcc_sysclk.c			\
+	stm32f1xx/rtc.c				\
+	stm32f1xx/sdio.c			\
+	stm32f1xx/stm32f1xx.c			\
+	\
+	random/random.c				\
+	softtimer/soft_timer_delay.c		\
+	\
+	iotlab-a8-m3/iotlab-a8-m3.c			\
+	iotlab-a8-m3/iotlab-a8-m3_drivers.c		\
+	iotlab-a8-m3/iotlab-a8-m3_lib.c		\
+	iotlab-a8-m3/iotlab-a8-m3_periph.c		\
+	\
+	rf2xx/rf2xx.c				\
+	phy_rf2xx/phy_rf2xx.c			\
+	\
+	lsm303dlhc/lsm303dlhc.c			\
+	l3g4200d/l3g4200d.c
+
+##
+## Wrappers from Openlab to Contiki API
+##
+
+OPENLAB_CONTIKI_WRAPPERS +=			\
+	clock-systick.c				\
+	watchdog.c				\
+	radio-rf2xx.c				\
+	slip-arch.c				\
+	uart1.c					\
+	\
+	openlab-port.c				\
+	rtimer-arch.c				\
+	leds-arch.c				\
+	\
+	acc-mag-sensor.c   \
+	gyr-sensor.c       \
+	fake-button-sensor.c
+
+
+ifndef CONTIKI_TARGET_MAIN
+CONTIKI_TARGET_MAIN += openlab-main.c
+endif
+
+##
+## Contiki apps and drivers
+##
+
+CONTIKI_SRC += 					\
+	leds.c 					\
+	sensors.c				\
+	slip.c					\
+
+##
+## Full source setup
+##
+
+CONTIKI_TARGET_DIRS += $(OPENLAB_TARGET_DIRS)
+
+CONTIKI_TARGET_SOURCEFILES +=  			\
+	$(OPENLAB_SRC)		 		\
+	$(OPENLAB_CONTIKI_WRAPPERS)		\
+	$(CONTIKI_SRC)                          \
+	$(CONTIKI_TARGET_MAIN)
+
+CONTIKI_SOURCEFILES += $(CONTIKI_TARGET_SOURCEFILES)
+
+##
+## We need to redefine the default compilation target so
+## that the build process is not confused
+##
+
+OPENLAB_PLATFORM_SUBDIR=${dir $(OPENLAB_SRC)}
+
+define OPENLAB_OBJECTDIR
+for i in $(OPENLAB_PLATFORM_SUBDIR) ;   \
+do					\
+	mkdir -p $(OBJECTDIR)/$$i ; 	\
+done
+endef
+
+CUSTOM_RULE_C_TO_OBJECTDIR_O = "defined"
+$(OBJECTDIR)/%.o: %.c
+	@$(OPENLAB_OBJECTDIR)
+	$(CC) $(CFLAGS) $(OPENLAB_INCLUDE_PATH) -MMD -c $< -o $@
+	@$(FINALIZE_DEPENDENCY)
+
+##
+##
+##
+
+

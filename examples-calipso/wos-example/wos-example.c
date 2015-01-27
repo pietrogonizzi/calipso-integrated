@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h> // for ARM-based platform
 #include "net/uip.h"
 #include "net/uip-ds6.h"
 #include "contiki.h"
