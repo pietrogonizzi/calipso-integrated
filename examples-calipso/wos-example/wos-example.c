@@ -152,7 +152,11 @@ static void init_sigfox_com() {
 	str_table[3] = at_gen_str;
 	rxLen = 0;
 	ringbuf_init(&ringb,serial_buf,32);
+#if defined(CONTIKI_TARGET_SKY)
 	uart1_set_input(sigofx_input_byte);
+#elif defined(CONTIKI_TARGET_WSN430)
+	uart0_set_input(sigofx_input_byte);
+#endif
 }
 
 static sfox_cmd_t match(unsigned char *str,uint16_t len) {
@@ -168,8 +172,13 @@ static sfox_cmd_t match(unsigned char *str,uint16_t len) {
 
 static void write_sf(char *data, uint8_t len) {
 	int i;
-	for (i=0;i<len;++i) 
-		uart1_writeb((unsigned char)data[i]);
+	for (i=0;i<len;++i) {
+		#if defined(CONTIKI_TARGET_SKY)
+			uart1_writeb((unsigned char)data[i]);
+		#elif defined(CONTIKI_TARGET_WSN430)
+			uart0_writeb((unsigned char)data[i]);
+		#endif
+	}
 }
 
 //#define H2C(_h) 		( ((_h)>9)?((_h)+'A'-10):((_h)+'0') )

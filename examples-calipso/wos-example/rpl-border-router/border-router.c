@@ -51,7 +51,9 @@
 
 #include "dev/cc2420.h"
 #include "net/netstack.h"
+#if defined(CONTIKI_TARGET_SKY)
 #include "dev/button-sensor.h"
+#endif
 #include "dev/slip.h"
 
 #include <stdio.h>
@@ -394,8 +396,9 @@ PROCESS_THREAD(border_router_process, ev, data)
   NETSTACK_MAC.off(0);
 
   PROCESS_PAUSE();
-
+#if defined(CONTIKI_TARGET_SKY)
   SENSORS_ACTIVATE(button_sensor);
+#endif
 
   PRINTF("RPL-Border router started\n");
 #if 0
@@ -444,10 +447,12 @@ PROCESS_THREAD(border_router_process, ev, data)
 
   while(1) {
     PROCESS_YIELD();
+#if defined(CONTIKI_TARGET_SKY)
     if (ev == sensors_event && data == &button_sensor) {
       PRINTF("Initiating global repair\n");
       rpl_repair_root(RPL_DEFAULT_INSTANCE);
     }
+#endif
   }
 
   PROCESS_END();

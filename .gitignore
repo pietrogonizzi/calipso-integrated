@@ -25,6 +25,8 @@
 *.c64
 *.cc2538dk
 *.report
+*.wsn430
+*.iotlab-m3
 summary
 *.summary
 *.faillog

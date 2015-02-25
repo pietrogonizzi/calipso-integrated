@@ -1,4 +1,4 @@
-all: wos-example wos-server
+all: wos-example
 # use this target explicitly if requried: er-plugtest-server
 
 # variable for this Makefile
